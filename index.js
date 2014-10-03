@@ -57,6 +57,14 @@ PhaxioAPI.prototype = {
         }
       }
     });
+  },
+
+  faxStatus: function(id) {
+    return postForm(this.url + '/faxStatus', this, function(form) {
+      form.append('id', String(id));
+      form.append('api_key', this.api_key);
+      form.append('api_secret', this.api_secret);
+    });
   }
 
 };
