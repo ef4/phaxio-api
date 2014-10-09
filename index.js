@@ -1,10 +1,15 @@
 var request = require('request');
+var url = require('url');
+var EventEmitter = require('events').EventEmitter;
+
 require('es6-promise').polyfill();
 
 function PhaxioAPI(config){
   if (!(this instanceof PhaxioAPI)) {
     return new PhaxioAPI(config);
   }
+  EventEmitter.call(this);
+
   this.url = config.url || 'https://api.phaxio.com/v1';
   if (!config.api_key) {
     throw new Error("Must configure api_key");
@@ -14,59 +19,84 @@ function PhaxioAPI(config){
     throw new Error("Must configure api_secret");
   }
   this.api_secret = config.api_secret;
+  if (config.callback_url) {
+    this.callback_url = url.parse(config.callback_url);
+    if (!this.callback_url.host) {
+      throw new Error("callback_url must be absolute");
+    }
+  }
 }
 
-PhaxioAPI.prototype = {
-  /*
-     Stream a document:
+PhaxioAPI.prototype = Object.create(EventEmitter.prototype);
 
-     phaxio.send('1235551212', {stream: fs.createReadStream(myFileName)})
+/*
+   Stream a document:
 
-     Stream a document with optional filename and contentType:
+   phaxio.send('1235551212', {stream: fs.createReadStream(myFileName)})
 
-     phaxio.send('1235551212', {
-       stream: anyReadableStream,
-       contentType: 'application/pdf',
-       filename: 'foo.pdf'
-     });
+   Stream a document with optional filename and contentType:
 
-     Send a string via phaxio's string_data options:
+   phaxio.send('1235551212', {
+     stream: anyReadableStream,
+     contentType: 'application/pdf',
+     filename: 'foo.pdf'
+   });
 
-     phaxio.send('1235551212', {
-       string_data: 'http://example.com/some_document',
-       string_data_type: 'url'
-     });
+   Send a string via phaxio's string_data options:
 
-     All other opts get passed through to phaxio's sendFax unchanged:
+   phaxio.send('1235551212', {
+     string_data: 'http://example.com/some_document',
+     string_data_type: 'url'
+   });
 
-     http://www.phaxio.com/docs/api/send/sendFax/
+   All other opts get passed through to phaxio's sendFax unchanged:
 
-     Returns a Promise for the parsed JSON response.
-  */
-  send: function(phoneNumber, opts) {
-    var args = splitOptions(opts);
-    return postForm(this.url + '/send', this, function(form) {
-      form.append('to', String(phoneNumber));
-      form.append('api_key', this.api_key);
-      form.append('api_secret', this.api_secret);
-      for (var key in args.phaxio) {
-        if (key === 'stream') {
-          form.append('filename', args.phaxio[key], args.filename);
-        } else {
-          form.append(key, args.phaxio[key]);
-        }
+   http://www.phaxio.com/docs/api/send/sendFax/
+
+   Returns a Promise for the parsed JSON response.
+*/
+PhaxioAPI.prototype.send = function(phoneNumber, opts) {
+  var args = splitOptions(opts);
+  return postForm(this.url + '/send', this, function(form) {
+    form.append('to', String(phoneNumber));
+    form.append('api_key', this.api_key);
+    form.append('api_secret', this.api_secret);
+    if (this.callback_url) {
+      form.append('callback_url', this.callback_url.href);
+    }
+    for (var key in args.phaxio) {
+      if (key === 'stream') {
+        form.append('filename', args.phaxio[key], args.filename);
+      } else {
+        form.append(key, args.phaxio[key]);
       }
-    });
-  },
+    }
+  });
+};
 
-  faxStatus: function(id) {
-    return postForm(this.url + '/faxStatus', this, function(form) {
-      form.append('id', String(id));
-      form.append('api_key', this.api_key);
-      form.append('api_secret', this.api_secret);
-    });
+PhaxioAPI.prototype.faxStatus = function(id) {
+  return postForm(this.url + '/faxStatus', this, function(form) {
+    form.append('id', String(id));
+    form.append('api_key', this.api_key);
+    form.append('api_secret', this.api_secret);
+  });
+};
+
+// Return Express-compatible middleware for receiving fax callbacks
+// from Phaxio. Depends on having bodyParser.json higher in the stack.
+PhaxioAPI.prototype.middleware = function() {
+  if (!this.callback_url) {
+    throw new Error("must configure a callback_url to use Phaxio.middleware");
   }
-
+  var self = this;
+  return function(req, res, next) {
+    if (req.pathname === self.callback_url.pathname) {
+      res.status(200).end();
+      this.emit('fax_callback', req.body);
+    } else {
+      next();
+    }
+  };
 };
 
 function splitOptions(opts) {
