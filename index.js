@@ -89,10 +89,11 @@ PhaxioAPI.prototype.middleware = function() {
     throw new Error("must configure a callback_url to use Phaxio.middleware");
   }
   var self = this;
+  var path = this.callback_url.pathname;
   return function(req, res, next) {
-    if (req.pathname === self.callback_url.pathname) {
+    if (req.method === 'POST' && req.path === path) {
+      self.emit('sent', req.body);
       res.status(200).end();
-      this.emit('fax_callback', req.body);
     } else {
       next();
     }
