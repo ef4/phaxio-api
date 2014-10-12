@@ -36,12 +36,14 @@ PhaxioAPI.prototype = Object.create(EventEmitter.prototype);
 
    phaxio.send('1235551212', {stream: fs.createReadStream(myFileName)})
 
-   Stream a document with optional filename and contentType:
+   Stream a document with optional filename, contentType, and knownLength:
 
    phaxio.send('1235551212', {
      stream: anyReadableStream,
      contentType: 'application/pdf',
-     filename: 'foo.pdf'
+     filename: 'foo.pdf',
+     knownLength: 1000 // This may be necessary when form-data
+                       // can't tell the length of your readable stream.
    });
 
    Send a string via phaxio's string_data options:
@@ -129,7 +131,7 @@ function splitOptions(opts) {
   var filename = {};
   if (opts) {
     for (var key in opts) {
-      if (key === 'contentType' || key === 'filename') {
+      if (key === 'contentType' || key === 'filename' || key === 'knownLength') {
         filename[key] = opts[key];
       } else {
         phaxio[key] = opts[key];
@@ -148,9 +150,9 @@ function postForm(url, context, fillForm){
       }
       var response = JSON.parse(body);
       if (httpResponse.statusCode >= 400 || !response.success) {
-        reject(body);
+        reject(response);
       } else {
-        resolve(body);
+        resolve(response);
       }
     });
     fillForm.call(context, r.form());
