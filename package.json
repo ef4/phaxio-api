@@ -10,6 +10,8 @@
   "license": "ISC",
   "dependencies": {
     "es6-promise": "^1.0.0",
-    "request": "^2.44.0"
+    "request": "^2.44.0",
+    "multer": "^0.1.6",
+    "express": "^4.9.7"
   }
 }
