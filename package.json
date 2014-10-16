@@ -1,13 +1,17 @@
 {
   "name": "phaxio-api",
   "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ef4/phaxio-api.git"
+  },
   "description": "Streaming Phaxio fax API integration",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Edward Faulkner <ef@alum.mit.edu",
+  "license": "MIT",
   "dependencies": {
     "es6-promise": "^1.0.0",
     "request": "^2.44.0",
